@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# user defined exclusions
+*.txt
+*.docx
+scripts/
+pyvenv.cfg
+playground/
+.idea/encodings.xml
