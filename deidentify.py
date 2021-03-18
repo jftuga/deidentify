@@ -1,14 +1,13 @@
-
 r"""
 deidentify.py
 -John Taylor
 Mar-16-2021
 
-Deidentify a file by replacing all proper/given names with PROPER_NAME_REPLACEMENT and then also
-replace pronouns such as 'he' to HE/SHE.
+Deidentify a file by replacing all proper/given names with a user-defined replacement string and
+then also replace pronouns such as 'he' to HE/SHE.
 
-Parsed entities and pronouns will be saved in a temporary file, RESULTS_FILE.  Since this program
-will probably not be 100% accurate, a small number of "possible misses" are also saved to this file.
+Parsed entities and pronouns will be saved in a temporary JSON file. Since this program will
+probably not be 100% accurate, a small number of "possible misses" are also saved to this file.
 Note that there can still be identifiable words in the output that are not substituted or contained
 in the "possible misses" list. YMMV!
 
@@ -35,12 +34,11 @@ Algorithm
 
 """
 
+import argparse
 import json
+import os.path
 import sys
 from operator import itemgetter
-
-PROPER_NAME_REPLACEMENT = "EMPLOYEE"
-RESULTS_FILE = "results.json"
 
 GENDER_PRONOUNS = {
     "he": "HE/SHE",
@@ -53,7 +51,8 @@ GENDER_PRONOUNS = {
     "herself": "HIMSELF/HERSELF",
     "mr.": "",
     "mrs.": "",
-    "ms.": "" }
+    "ms.": ""}
+
 
 def safe_print(data, is_error=False):
     dest = sys.stdout if not is_error else sys.stderr
@@ -87,7 +86,8 @@ class DeIdentify:
                 print(f"=ENTITIES {ent.text=}, {ent.start_char=}, {ent.end_char=}, {ent.label_=}")
         if 0:
             for token in self.doc:
-                print(f"=TOKENS {token.text=}, {token.lemma_=}, {token.pos_=}, {token.tag_=}, {token.dep_=}, {token.shape_=}, , {token.idx=}")
+                print(
+                    f"=TOKENS {token.text=}, {token.lemma_=}, {token.pos_=}, {token.tag_=}, {token.dep_=}, {token.shape_=}, , {token.idx=}")
 
         for ent in self.doc.ents:
             if "PERSON" == ent.label_:
@@ -116,10 +116,11 @@ class DeIdentify:
             sorted_entities = sorted(self.entities, key=itemgetter("start_char"), reverse=True)
             sorted_pronouns = sorted(self.pronouns, key=itemgetter("idx"), reverse=True)
             sorted_missed = sorted(self.missed, key=itemgetter("idx"), reverse=True)
-            json.dump({"message": self.message, "entities": sorted_entities, "pronouns": sorted_pronouns, "possible_misses": sorted_missed}, fp, skipkeys=False, ensure_ascii=False, indent=4)
+            json.dump({"message": self.message, "entities": sorted_entities, "pronouns": sorted_pronouns,
+                       "possible_misses": sorted_missed}, fp, skipkeys=False, ensure_ascii=False, indent=4)
 
     def replace_merged(self, replacement: str) -> str:
-        want_bold_stars = False # this may be good for markdown (.md) files
+        want_bold_stars = False  # this may be good for markdown (.md) files
         if 1:
             for obj in self.merged:
                 text = obj["item"]["text"]
@@ -130,7 +131,7 @@ class DeIdentify:
                 if 0:
                     print(f"xx: {obj['type']}, {position}, {text}")
             if 0:
-                print("="*77)
+                print("=" * 77)
 
         for obj in self.merged:
             if obj["type"] == "pronoun":
@@ -159,10 +160,10 @@ class DeIdentify:
         if 0:
             for ent in self.entities:
                 print(ent)
-            print("="*77)
+            print("=" * 77)
 
-        p = 0 # pronouns
-        e = 0 # entities
+        p = 0  # pronouns
+        e = 0  # entities
 
         if len(self.pronouns) >= len(self.entities):
             while p < len(self.pronouns):
@@ -185,7 +186,7 @@ class DeIdentify:
                 keyval = {"type": "entity", "index": e, "item": self.entities[e]}
                 e += 1
                 self.merged.append(keyval)
-        else: # there are more entities than pronouns
+        else:  # there are more entities than pronouns
             while e < len(self.entities):
                 start_char = self.entities[e]["start_char"]
                 if p == len(self.pronouns):
@@ -213,7 +214,7 @@ class DeIdentify:
             pprint.pprint(self.merged)
 
         if 0:
-            print("="*77)
+            print("=" * 77)
             print(self.message)
 
     def possible_misses(self) -> list:
@@ -221,7 +222,7 @@ class DeIdentify:
         previous_idx = 0
         for token in self.doc:
             if token.text == "'s" and token.pos_ == 'VERB':
-                self.missed.append({"text":"%s%s" % (previous,token.text), "idx": previous_idx})
+                self.missed.append({"text": "%s%s" % (previous, token.text), "idx": previous_idx})
             previous = token.text
             previous_idx = token.idx
 
@@ -234,15 +235,23 @@ class DeIdentify:
             self.pronouns = sorted(a["pronouns"], key=itemgetter("idx"), reverse=True)
             self.message = a["message"]
 
-def replacer() -> str:
-    a = DeIdentify("", load=False)
-    a.load_metadata(RESULTS_FILE)
-    a.merge_metadata()
-    return a.replace_merged(PROPER_NAME_REPLACEMENT)
 
-def finder() -> tuple:
-    fname = sys.argv[1]
-    with open(fname, encoding="latin1") as fp:
+#############################################################################################################
+
+def create_json_filename(input_file: str) -> str:
+    filename, _ = os.path.splitext(input_file)
+    return filename + "--tokens.json"
+
+
+def replacer(replacement: str, input_file: str) -> str:
+    a = DeIdentify("", load=False)
+    a.load_metadata(create_json_filename(input_file))
+    a.merge_metadata()
+    return a.replace_merged(replacement)
+
+
+def finder(input_file: str) -> tuple:
+    with open(input_file, encoding="latin1") as fp:
         data = fp.read()
 
     a = DeIdentify(data)
@@ -265,19 +274,36 @@ def finder() -> tuple:
 
     possible_misses = a.possible_misses()
     if verbose and len(possible_misses):
-        print("="*77)
+        print("=" * 77)
         safe_print(f"{possible_misses=}")
 
-    a.save_metadata("results.json")
+    a.save_metadata(create_json_filename(input_file))
     return len(entities), len(pronouns), len(possible_misses)
 
-def main():
+
+def start_deidentification(input_file: str, replacement: str, output_file: str):
     print(f"starting deidentification...", file=sys.stderr)
-    entities, pronouns, possible_misses = finder()
+    entities, pronouns, possible_misses = finder(input_file)
     print(f"deidentification results: {entities=}, {pronouns=}, {possible_misses=}", file=sys.stderr)
 
-    replaced_text = replacer()
-    safe_print(replaced_text)
+    replaced_text = replacer(replacement, input_file)
+    if not len(output_file):
+        safe_print(replaced_text)
+    else:
+        with open(output_file, encoding="latin1", mode="w") as fp:
+            fp.write(replaced_text)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input_file", help="text file to deidentify")
+    parser.add_argument("-r", "--replacement", help="a word/phrase to replace identified names with", required=True)
+    parser.add_argument("-o", "--output_file", help="output file")
+    args = parser.parse_args()
+
+    output_file = args.output_file if args.output_file else ""
+    start_deidentification(args.input_file, args.replacement, output_file)
+
 
 if "__main__" == __name__:
     main()
