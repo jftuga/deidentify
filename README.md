@@ -29,7 +29,7 @@ I think PERSON likes programming. You can tell HE/SHE enjoys using Python.
 python -m pip install --upgrade pip
 pip install setuptools wheel
 pip install spacy
-python -m spacy en_core_web_trf
+python -m spacy download en_core_web_trf
 ```
 
 ## Example
