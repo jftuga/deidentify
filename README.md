@@ -27,7 +27,7 @@ I think PERSON likes programming. You can tell HE/SHE enjoys using Python.
 
 ```shell
 python.exe -m pip install --upgrade pip
-pip install pip setuptools wheel
+pip install setuptools wheel
 pip install spacy
 ```
 
