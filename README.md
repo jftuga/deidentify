@@ -26,9 +26,10 @@ I think PERSON likes programming. You can tell HE/SHE enjoys using Python.
 * Once you have activated your [Python Virtual Environment](https://docs.python.org/3/library/venv.html), you can then install `Spacy`:
 
 ```shell
-python.exe -m pip install --upgrade pip
+python -m pip install --upgrade pip
 pip install setuptools wheel
 pip install spacy
+python -m spacy en_core_web_trf
 ```
 
 ## Example
