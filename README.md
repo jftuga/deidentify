@@ -32,6 +32,21 @@ pip install spacy
 python -m spacy download en_core_web_trf
 ```
 
+## Usage
+```
+usage: deidentify.py [-h] -r REPLACEMENT [-o OUTPUT_FILE] input_file
+
+positional arguments:
+  input_file            text file to deidentify
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -r REPLACEMENT, --replacement REPLACEMENT
+                        a word/phrase to replace identified names with
+  -o OUTPUT_FILE, --output_file OUTPUT_FILE
+                        output file
+```
+
 ## Example
 
 ```shell
@@ -39,18 +54,13 @@ python -m spacy download en_core_web_trf
 
 cd deidentify
 scripts\activate
-python deidentify.py input.txt > output.txt
+python deidentify.py -r PERSON -o output.txt input.txt
 diff input.txt output.txt
 
 --Linux
 
 cd deidentify
 source bin/activate
-python3 deidentify.py input.txt > output.txt
+python deidentify.py -r PERSON -o output.txt input.txt
 diff input.txt output.txt
 ```
-
-## TO DO
-* provide command line arguments for:
-* * `PROPER_NAME_REPLACEMENT`: replace a detected name with this given string
-* * `RESULTS_FILE`: a temporary file containing json entries for detected entities, pronouns, and possible misses
