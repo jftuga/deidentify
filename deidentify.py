@@ -53,6 +53,30 @@ GENDER_PRONOUNS = {
     "mrs.": "",
     "ms.": ""}
 
+HTML_BEGIN = """<!DOCTYPE html>
+<html>
+<head>
+<style>
+#span1 {
+  background: yellow;
+  color: black;
+  display: inline-block;
+  font-weight: bold;
+}
+#span2 {
+  background: turquoise;
+  color: black;
+  display: inline-block;
+  font-weight: bold;
+}
+</style>
+</head>
+<body>
+"""
+
+HTML_END = """</body>
+</html>
+"""
 
 def safe_print(data, is_error=False):
     dest = sys.stdout if not is_error else sys.stderr
@@ -119,8 +143,7 @@ class DeIdentify:
             json.dump({"message": self.message, "entities": sorted_entities, "pronouns": sorted_pronouns,
                        "possible_misses": sorted_missed}, fp, skipkeys=False, ensure_ascii=False, indent=4)
 
-    def replace_merged(self, replacement: str) -> str:
-        want_bold_stars = False  # this may be good for markdown (.md) files
+    def replace_merged(self, want_html:bool, replacement: str) -> str:
         if 1:
             for obj in self.merged:
                 text = obj["item"]["text"]
@@ -140,15 +163,15 @@ class DeIdentify:
 
                 anon = GENDER_PRONOUNS[obj["item"]["text"].lower()]
 
-                if want_bold_stars and len(anon):
-                    anon = "**" + anon + "**"
+                if want_html and len(anon):
+                    anon = '<span id="span1">' + anon + '</span>'
 
                 self.message = self.message[:start] + anon + self.message[end:]
             elif obj["type"] == "entity":
                 start = obj["item"]["start_char"]
                 end = obj["item"]["end_char"]
 
-                bold_replacement = "**" + replacement + "**" if want_bold_stars else replacement
+                bold_replacement = '<span id="span2">' + replacement + '</span>' if want_html else replacement
                 self.message = self.message[:start] + bold_replacement + self.message[end:]
             else:
                 print(f"Error #74023: unknown object type: {obj['type']}")
@@ -243,11 +266,11 @@ def create_json_filename(input_file: str) -> str:
     return filename + "--tokens.json"
 
 
-def replacer(replacement: str, input_file: str) -> str:
+def replacer(want_html:bool, replacement: str, input_file: str) -> str:
     a = DeIdentify("", load=False)
     a.load_metadata(create_json_filename(input_file))
     a.merge_metadata()
-    return a.replace_merged(replacement)
+    return a.replace_merged(want_html, replacement)
 
 
 def finder(input_file: str) -> tuple:
@@ -281,17 +304,21 @@ def finder(input_file: str) -> tuple:
     return len(entities), len(pronouns), len(possible_misses)
 
 
-def start_deidentification(input_file: str, replacement: str, output_file: str):
+def start_deidentification(want_html:bool, input_file: str, replacement: str, output_file: str):
     print(f"starting deidentification...", file=sys.stderr)
     entities, pronouns, possible_misses = finder(input_file)
     print(f"deidentification results: {entities=}, {pronouns=}, {possible_misses=}", file=sys.stderr)
 
-    replaced_text = replacer(replacement, input_file)
+    replaced_text = replacer(want_html, replacement, input_file)
     if not len(output_file):
         safe_print(replaced_text)
     else:
         with open(output_file, encoding="latin1", mode="w") as fp:
+            if want_html:
+                fp.write(HTML_BEGIN)
             fp.write(replaced_text)
+            if want_html:
+                fp.write(HTML_END)
 
 
 def main():
@@ -299,10 +326,11 @@ def main():
     parser.add_argument("input_file", help="text file to deidentify")
     parser.add_argument("-r", "--replacement", help="a word/phrase to replace identified names with", required=True)
     parser.add_argument("-o", "--output_file", help="output file")
+    parser.add_argument("-H", "--html", help="output in HTML format", action="store_true")
     args = parser.parse_args()
 
     output_file = args.output_file if args.output_file else ""
-    start_deidentification(args.input_file, args.replacement, output_file)
+    start_deidentification(args.html, args.input_file, args.replacement, output_file)
 
 
 if "__main__" == __name__:

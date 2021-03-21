@@ -34,7 +34,7 @@ python -m spacy download en_core_web_trf
 
 ## Usage
 ```
-usage: deidentify.py [-h] -r REPLACEMENT [-o OUTPUT_FILE] input_file
+usage: deidentify.py [-h] -r REPLACEMENT [-o OUTPUT_FILE] [-H] input_file
 
 positional arguments:
   input_file            text file to deidentify
@@ -45,9 +45,10 @@ optional arguments:
                         a word/phrase to replace identified names with
   -o OUTPUT_FILE, --output_file OUTPUT_FILE
                         output file
+  -H, --html            output in HTML format
 ```
 
-## Example
+## Operation
 
 ```shell
 -- Windows 
@@ -57,10 +58,14 @@ scripts\activate
 python deidentify.py -r PERSON -o output.txt input.txt
 diff input.txt output.txt
 
---Linux
+-- Linux
 
 cd deidentify
 source bin/activate
 python deidentify.py -r PERSON -o output.txt input.txt
 diff input.txt output.txt
+
+-- HTML Output
+
+python deidentify.py -H -r PERSON -o output.htm input.txt
 ```
