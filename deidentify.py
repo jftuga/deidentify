@@ -211,6 +211,8 @@ class DeIdentify:
         # case 4: there are more pronouns then entities
         if len(self.pronouns) >= len(self.entities):
             while p < len(self.pronouns):
+                if e == len(self.entities):
+                    break
                 idx = self.pronouns[p]["idx"]
                 start_char = self.entities[e]["start_char"]
                 if e == len(self.entities):
@@ -274,11 +276,15 @@ class DeIdentify:
     def possible_misses(self) -> list:
         previous = None
         previous_idx = 0
+        previous_tag = ""
         for token in self.doc:
             if token.text == "'s" and token.pos_ == 'VERB':
                 self.missed.append({"text": "%s%s" % (previous, token.text), "idx": previous_idx})
+            if token.pos_ == "PROPN" and token.tag_ == "NNP" and previous_tag == "HYPH":
+                self.missed.append({"text": "%s%s" % (previous, token.text), "idx": previous_idx})
             previous = token.text
             previous_idx = token.idx
+            previous_tag = token.tag_
 
         return self.missed
 
