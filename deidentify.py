@@ -189,6 +189,26 @@ class DeIdentify:
         p = 0  # pronouns
         e = 0  # entities
 
+        # case 1: there are no entities and no pronouns
+        if len(self.entities) == 0 and len(self.pronouns) == 0:
+            return
+
+        # case 2: there are entities, but no pronouns
+        if len(self.entities) >0 and len(self.pronouns) == 0:
+            while e < len(self.entities):
+                keyval = {"type": "entity", "index": e, "item": self.entities[e]}
+                e += 1
+                self.merged.append(keyval)
+            return
+
+        # case 3: there are pronouns but no entities
+        if len(self.pronouns) > 0 and len(self.entities) == 0:
+            while p < len(self.pronouns):
+                keyval = {"type": "pronoun", "index": p, "item": self.pronouns[p]}
+                p += 1
+                self.merged.append(keyval)
+
+        # case 4: there are more pronouns then entities
         if len(self.pronouns) >= len(self.entities):
             while p < len(self.pronouns):
                 idx = self.pronouns[p]["idx"]
@@ -215,7 +235,7 @@ class DeIdentify:
                 keyval = {"type": "pronoun", "index": p, "item": self.pronouns[p]}
                 p += 1
                 self.merged.append(keyval)
-        else:  # there are more entities than pronouns
+        else:  # case 5: there are more entities than pronouns
             while e < len(self.entities):
                 start_char = self.entities[e]["start_char"]
                 if p == len(self.pronouns):
