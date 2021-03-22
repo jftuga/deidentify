@@ -78,6 +78,7 @@ HTML_END = """</body>
 </html>
 """
 
+
 def safe_print(data, is_error=False):
     dest = sys.stdout if not is_error else sys.stderr
     # can also use 'replace' instead of 'ignore' for errors= parameter
@@ -143,7 +144,7 @@ class DeIdentify:
             json.dump({"message": self.message, "entities": sorted_entities, "pronouns": sorted_pronouns,
                        "possible_misses": sorted_missed}, fp, skipkeys=False, ensure_ascii=False, indent=4)
 
-    def replace_merged(self, want_html:bool, replacement: str) -> str:
+    def replace_merged(self, want_html: bool, replacement: str) -> str:
         if 1:
             for obj in self.merged:
                 text = obj["item"]["text"]
@@ -209,6 +210,11 @@ class DeIdentify:
                 keyval = {"type": "entity", "index": e, "item": self.entities[e]}
                 e += 1
                 self.merged.append(keyval)
+            # there may be more pronouns that occur after the last entity is encountered
+            while p < len(self.pronouns):
+                keyval = {"type": "pronoun", "index": p, "item": self.pronouns[p]}
+                p += 1
+                self.merged.append(keyval)
         else:  # there are more entities than pronouns
             while e < len(self.entities):
                 start_char = self.entities[e]["start_char"]
@@ -229,6 +235,11 @@ class DeIdentify:
             while p < len(self.pronouns):
                 keyval = {"type": "pronoun", "index": p, "item": self.pronouns[p]}
                 p += 1
+                self.merged.append(keyval)
+            # there may be more entities that occur after the last pronoun is encountered
+            while e < len(self.entities):
+                keyval = {"type": "entity", "index": e, "item": self.entities[e]}
+                e += 1
                 self.merged.append(keyval)
 
         if 0:
@@ -266,7 +277,7 @@ def create_json_filename(input_file: str) -> str:
     return filename + "--tokens.json"
 
 
-def replacer(want_html:bool, replacement: str, input_file: str) -> str:
+def replacer(want_html: bool, replacement: str, input_file: str) -> str:
     a = DeIdentify("", load=False)
     a.load_metadata(create_json_filename(input_file))
     a.merge_metadata()
@@ -304,7 +315,7 @@ def finder(input_file: str) -> tuple:
     return len(entities), len(pronouns), len(possible_misses)
 
 
-def start_deidentification(want_html:bool, input_file: str, replacement: str, output_file: str):
+def start_deidentification(want_html: bool, input_file: str, replacement: str, output_file: str):
     print(f"starting deidentification...", file=sys.stderr)
     entities, pronouns, possible_misses = finder(input_file)
     print(f"deidentification results: {entities=}, {pronouns=}, {possible_misses=}", file=sys.stderr)
@@ -316,6 +327,7 @@ def start_deidentification(want_html:bool, input_file: str, replacement: str, ou
         with open(output_file, encoding="latin1", mode="w") as fp:
             if want_html:
                 fp.write(HTML_BEGIN)
+                replaced_text = replaced_text.replace("\n", "<br />\n")
             fp.write(replaced_text)
             if want_html:
                 fp.write(HTML_END)
