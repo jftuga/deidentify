@@ -213,13 +213,13 @@ class DeIdentify:
             while p < len(self.pronouns):
                 if e == len(self.entities):
                     break
-                idx = self.pronouns[p]["idx"]
-                start_char = self.entities[e]["start_char"]
                 if e == len(self.entities):
                     keyval = {"type": "pronoun", "index": p, "item": self.pronouns[p]}
                     p += 1
                     self.merged.append(keyval)
                     break
+                idx = self.pronouns[p]["idx"]
+                start_char = self.entities[e]["start_char"]
                 if idx > start_char:
                     keyval = {"type": "pronoun", "index": p, "item": self.pronouns[p]}
                     p += 1
@@ -239,13 +239,15 @@ class DeIdentify:
                 self.merged.append(keyval)
         else:  # case 5: there are more entities than pronouns
             while e < len(self.entities):
-                start_char = self.entities[e]["start_char"]
+                if p == len(self.pronouns):
+                    break
                 if p == len(self.pronouns):
                     keyval = {"type": "entity", "index": e, "item": self.entities[e]}
                     e += 1
                     self.merged.append(keyval)
                     break
                 idx = self.pronouns[p]["idx"]
+                start_char = self.entities[e]["start_char"]
                 if start_char > idx:
                     keyval = {"type": "entity", "index": e, "item": self.entities[e]}
                     e += 1
