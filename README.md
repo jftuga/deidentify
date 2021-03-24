@@ -1,8 +1,6 @@
 # deidentify
 Deidentify people's names along with pronoun substitution
 
-**Note: This is currently a work in progress!**
-
 ## Synopsis
 
 This program is used to substitute a person's given name and/or surname along with any gender specific pronouns.
