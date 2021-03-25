@@ -3,7 +3,7 @@ Deidentify people's names along with pronoun substitution
 
 ## Synopsis
 
-This program is used to substitute a person's given name and/or surname along with any gender specific pronouns.
+This is a command-line program used to substitute a person's given name and/or surname along with any gender specific pronouns. A [Windows GUI](https://github.com/jftuga/deidentify-gui) for this program is also available.
 
 ## Example
 
