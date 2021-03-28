@@ -21,9 +21,15 @@ I think PERSON likes programming. You can tell HE/SHE enjoys using Python.
 * For best results, you can set up a [Python Virtual Environment](https://docs.python.org/3/library/venv.html) and install `Spacy` with these settings:
 * ![Spacy Settings](spacy_settings.png)
 * `Spacy` can be installed with [other Spacy configuration options](https://spacy.io/usage).
-* Once you have activated your [Python Virtual Environment](https://docs.python.org/3/library/venv.html), you can then install `Spacy`:
+
+## Installation
 
 ```shell
+git clone https://github.com/jftuga/deidentify.git
+python -m venv deidentify
+cd deidentify
+(Windows) - scripts\activate
+(Linux/MacOS) - source bin/activate
 python -m pip install --upgrade pip
 pip install setuptools wheel
 pip install spacy
@@ -67,3 +73,7 @@ diff input.txt output.txt
 
 python deidentify.py -H -r PERSON -o output.htm input.txt
 ```
+
+## Possible Misses
+
+These are listed as `possible_misses` in an intermeadiate JSON file named `input--tokens.json` when using `input.txt` as the input file.
