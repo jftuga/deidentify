@@ -40,6 +40,10 @@ import os.path
 import sys
 from operator import itemgetter
 
+pgmName = "deidentify"
+pgmUrl = "https://github.com/jftuga/deidentify"
+pgmVersion = "1.0.0"
+
 GENDER_PRONOUNS = {
     "he": "HE/SHE",
     "him": "HIM/HER",
@@ -367,6 +371,7 @@ def main():
     parser.add_argument("-r", "--replacement", help="a word/phrase to replace identified names with", required=True)
     parser.add_argument("-o", "--output_file", help="output file")
     parser.add_argument("-H", "--html", help="output in HTML format", action="store_true")
+    parser.add_argument("-v", "--version", help="display program version and then exit", action="version", version=f"{pgmName}, v{pgmVersion},  {pgmUrl}")
     args = parser.parse_args()
 
     output_file = args.output_file if args.output_file else ""
