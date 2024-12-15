@@ -130,9 +130,12 @@ dmypy.json
 
 # user defined exclusions
 *.txt
+!requirements.txt
 *.docx
 scripts/
 pyvenv.cfg
 playground/
-.idea/encodings.xml
+.idea/
 *.json
+.??*~
+
