@@ -2,7 +2,7 @@ r"""
 deidentify.py
 -John Taylor
 Mar-16-2021
-Dec-14-2024 v1.1.0
+Dec-17-2024 v1.2.0
 
 Deidentify a file by replacing all proper/given names with a user-defined replacement string and
 then also replace pronouns such as 'he' to HE/SHE.
@@ -71,6 +71,30 @@ GENDER_PRONOUNS = {
     "mrs.": "",
     "ms.": ""}
 
+ALL_CONTRACTIONS = (
+    "it",
+    "that",
+    "what",
+    "there",
+    "here",
+    "let",
+    "how",
+    "where",
+    "who",
+    "when",
+    "one",
+    "somebody",
+    "someone",
+    "something",
+    "nobody",
+    "everyone",
+    "anybody",
+    "nothing",
+    "why",
+    "this",
+    "which")
+
+
 HTML_BEGIN = """<!DOCTYPE html>
 <html>
 <head>
@@ -83,6 +107,12 @@ HTML_BEGIN = """<!DOCTYPE html>
 }
 #span2 {
   background: turquoise;
+  color: black;
+  display: inline-block;
+  font-weight: bold;
+}
+#span3 {
+  background: pink;
   color: black;
   display: inline-block;
   font-weight: bold;
@@ -199,7 +229,11 @@ class DeIdentify:
             accuracy in entity recognition and part-of-speech tagging.
         """
         if load:
+            import torch
+            self.original_load = torch.load
+            torch.load  = self.safe_load
             import spacy
+            spacy.prefer_gpu()
             DeIdentify.nlp = spacy.load('en_core_web_trf')
         self.message = message
         self.entities = []
@@ -208,6 +242,29 @@ class DeIdentify:
         self.missed = []
         self.doc = None
         self.debug = debug
+
+    def safe_load(self, file, *args, **kwargs):
+        """A patched version of `torch.load` that sets `weights_only=True` by default.
+
+        This function addresses a security-related change in PyTorch where the 
+        default behavior of `torch.load` will eventually flip to `weights_only=True` 
+        to prevent the loading of arbitrary pickle data, which can be exploited 
+        to execute malicious code. By explicitly setting `weights_only=True`, this 
+        function ensures compatibility with the future default and mitigates 
+        potential security risks when loading untrusted models.
+
+        Args:
+            file (Union[str, BinaryIO]): The file path or file-like object 
+                from which to load the model state dictionary.
+            *args (Any): Additional positional arguments passed to `torch.load`.
+            **kwargs (Any): Additional keyword arguments passed to `torch.load`.
+
+        Returns:
+            Any: The result of loading the file, typically a PyTorch model state 
+            dictionary or weights, depending on the use case.
+        """
+        kwargs['weights_only'] = True
+        return self.original_load(file, *args, **kwargs)
 
     def get_entities(self):
         """Extracts person entities from the message text using spaCy NLP.
@@ -321,6 +378,33 @@ class DeIdentify:
             json.dump({"message": self.message, "entities": sorted_entities, "pronouns": sorted_pronouns,
                        "possible_misses": sorted_missed}, fp, skipkeys=False, ensure_ascii=False, indent=4)
 
+    def check_for_embedded_miss(self, start: int, end: int) -> int:
+        """Checks for embedded missed text within a given range and adjusts the end position.
+
+        This function examines a collection of missed text objects and determines if any
+        of their indices fall within the specified range. If found, it adjusts the end
+        position to account for the embedded text.
+
+        Args:
+            start (int): The starting index position to check.
+            end (int): The ending index position to check.
+
+        Returns:
+            int: The adjusted end position if an embedded miss is found,
+                otherwise returns the original end position.
+
+        Note:
+            The function assumes self.missed is a list of dictionaries, where each
+            dictionary contains 'text' and 'idx' keys representing missed text and
+            its index position respectively.
+        """
+        for obj in self.missed:
+            new_end = end - len(obj["text"])
+            missed_idx = obj["idx"]
+            if start <= missed_idx <= new_end:
+                return new_end
+        return end
+
     def replace_merged(self, want_html: bool, replacement: str) -> str:
         """Replaces pronouns and entities in the message text with alternative text.
 
@@ -374,9 +458,17 @@ class DeIdentify:
             elif obj["type"] == "entity":
                 start = obj["item"]["start_char"]
                 end = obj["item"]["end_char"]
+                new_end = self.check_for_embedded_miss(obj["item"]["text"], start,end)
 
                 bold_replacement = '<span id="span2">' + replacement + '</span>' if want_html else replacement
-                self.message = self.message[:start] + bold_replacement + self.message[end:]
+                self.message = self.message[:start] + bold_replacement + self.message[new_end:]
+            elif obj["type"] == "miss":
+                start = obj["item"]["idx"]
+                end = start + len(obj["item"]["text"])
+                # print(f"{start=}, {end=}")
+
+                highlighted = '<span id="span3">' + obj["item"]["text"] + '</span>' if want_html else replacement
+                self.message = self.message[:start] + highlighted + self.message[end:]
             else:
                 print(f"Error #74023: unknown object type: {obj['type']}")
                 sys.exit(1)
@@ -384,6 +476,105 @@ class DeIdentify:
         return self.message
 
     def merge_metadata(self):
+        """Merges entity, pronoun, and possible miss metadata into a single ordered sequence.
+
+        Processes entity, pronoun, and possible miss information into a single ordered sequence
+        in self.merged based on their positions in the text. Each merged item contains type
+        information ("entity", "pronoun", or "miss") and maintains the original metadata.
+
+        The method handles these cases:
+        1. Empty lists: Returns without modification
+        2. Single type only: Adds all items of that type in order
+        3. Multiple types: Merges based on position comparison
+
+        Items are ordered by comparing:
+        - Pronoun 'idx' values
+        - Entity 'start_char' values
+        - Miss 'idx' values
+
+        The method modifies self.merged in place, adding dictionaries with keys:
+        - type: String indicating "entity", "pronoun", or "miss"
+        - index: Integer index of the item within its type
+        - item: Original metadata dictionary
+        """
+        if self.debug:
+            for ent in self.entities:
+                print(ent)
+            print("=" * 77)
+
+        # Initialize counters for each type
+        p = 0  # pronouns
+        e = 0  # entities
+        m = 0  # missed
+
+        # Clear any existing merged data
+        self.merged = []
+
+        # Case 1: all lists are empty
+        if not (self.entities or self.pronouns or self.missed):
+            return
+
+        # Create sorted lists for each type
+        sorted_entities = sorted(self.entities, key=itemgetter("start_char"), reverse=True) if self.entities else []
+        sorted_pronouns = sorted(self.pronouns, key=itemgetter("idx"), reverse=True) if self.pronouns else []
+        sorted_misses = sorted(self.missed, key=itemgetter("idx"), reverse=True) if self.missed else []
+
+        # Continue until we've processed all items
+        while e < len(sorted_entities) or p < len(sorted_pronouns) or m < len(sorted_misses):
+            # Get current positions for each type (use None if exhausted)
+            entity_pos = sorted_entities[e]["start_char"] if e < len(sorted_entities) else None
+            pronoun_pos = sorted_pronouns[p]["idx"] if p < len(sorted_pronouns) else None
+            miss_pos = sorted_misses[m]["idx"] if m < len(sorted_misses) else None
+
+            # Find the highest position among non-None values
+            positions = []
+            if entity_pos is not None:
+                positions.append(("entity", entity_pos, e))
+            if pronoun_pos is not None:
+                positions.append(("pronoun", pronoun_pos, p))
+            if miss_pos is not None:
+                positions.append(("miss", miss_pos, m))
+
+            if not positions:  # Shouldn't happen but safe to check
+                break
+
+            # Sort positions to find highest
+            positions.sort(key=lambda x: x[1], reverse=True)
+            next_type, _, idx = positions[0]
+            if self.debug:
+                print(f"xxx: {next_type=} {idx=}")
+
+            # Add the item with the highest position
+            if next_type == "entity":
+                self.merged.append({
+                    "type": "entity",
+                    "index": e,
+                    "item": sorted_entities[e]
+                })
+                e += 1
+            elif next_type == "pronoun":
+                self.merged.append({
+                    "type": "pronoun",
+                    "index": p,
+                    "item": sorted_pronouns[p]
+                })
+                p += 1
+            else:  # miss
+                self.merged.append({
+                    "type": "miss",
+                    "index": m,
+                    "item": sorted_misses[m]
+                })
+                m += 1
+
+        if self.debug:
+            import pprint
+            print("xxx merged")
+            pprint.pprint(self.merged)
+            print("=" * 77)
+            print(self.message)
+
+    def merge_metadata_orig(self):
         """Merges entity and pronoun metadata into a single ordered sequence.
 
         Processes entity and pronoun information stored in self.entities and self.pronouns,
@@ -413,6 +604,7 @@ class DeIdentify:
 
         p = 0  # pronouns
         e = 0  # entities
+        m = 0 # possible misses
 
         # case 1: there are no entities and no pronouns
         if len(self.entities) == 0 and len(self.pronouns) == 0:
@@ -520,7 +712,7 @@ class DeIdentify:
         previous_idx = 0
         previous_tag = ""
         for token in self.doc:
-            if token.text == "'s" and token.pos_ == 'VERB':
+            if token.text == "'s" and token.pos_ == 'VERB' and previous.lower() not in ALL_CONTRACTIONS:
                 self.missed.append({"text": "%s%s" % (previous, token.text), "idx": previous_idx})
             if token.pos_ == "PROPN" and token.tag_ == "NNP" and previous_tag == "HYPH":
                 self.missed.append({"text": "%s%s" % (previous, token.text), "idx": previous_idx})
@@ -553,6 +745,7 @@ class DeIdentify:
             a = json.load(fp)
             self.entities = sorted(a["entities"], key=itemgetter("start_char"), reverse=True)
             self.pronouns = sorted(a["pronouns"], key=itemgetter("idx"), reverse=True)
+            self.missed = sorted(a["possible_misses"], key=itemgetter("idx"), reverse=True)
             self.message = a["message"]
 
 #############################################################################################################
