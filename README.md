@@ -1,3 +1,21 @@
+# DEPRECATION NOTICE
+
+This project has been superseded by another one of my projects:
+
+[deidentification](https://github.com/jftuga/deidentification)
+
+**Please use that instead as it has better functionality.**
+
+### Reasons behind this change:
+
+* The new tool does a much better job a identifying and replacing `PERSON` entities.
+* * This project's code always had problems with hyphenated names and possessive form, marked by an apostrophe followed by `s`.
+* The new tool also contains an API as well as a command-line tool, which also has the name of `deidentify`.
+* The new tool has better debugging built in with the `-d` option.
+* With this code, the `--tokens.json` file was *always* created. With the new tool, this is a command-line option: `-t`.
+
+___
+
 # Text De-identification Tool
 
 ## INTRODUCTION
