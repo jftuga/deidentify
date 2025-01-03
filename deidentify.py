@@ -458,7 +458,7 @@ class DeIdentify:
             elif obj["type"] == "entity":
                 start = obj["item"]["start_char"]
                 end = obj["item"]["end_char"]
-                new_end = self.check_for_embedded_miss(obj["item"]["text"], start,end)
+                new_end = self.check_for_embedded_miss(start,end)
 
                 bold_replacement = '<span id="span2">' + replacement + '</span>' if want_html else replacement
                 self.message = self.message[:start] + bold_replacement + self.message[new_end:]
@@ -981,7 +981,7 @@ def start_deidentification(want_html: bool, input_file: str, replacement: str, o
             - Converts newlines to <br /> tags
         - Uses safe_print for stdout to handle encoding issues
     """
-    print(f"starting deidentification...", file=sys.stderr)
+    print(f"starting deidentification of {input_file}...", file=sys.stderr)
     entities, pronouns, possible_misses = finder(input_file)
     print(f"deidentification results: {entities=}, {pronouns=}, {possible_misses=}", file=sys.stderr)
 

@@ -1,2 +1,3 @@
 chardet
 spacy
+git+https://github.com/andrewspiers/VeryPrettyTable.git
